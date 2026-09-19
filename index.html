@@ -1,1 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Daily Task Manager</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <header class="topbar">
+        <h1>Daily Task Manager</h1>
+
+        <div>
+            <span id="currentUser"></span>
+            <button onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <!-- LOGIN -->
+
+    <section id="loginPage" class="login-page">
+
+        <div class="login-box">
+
+            <h2>Daily Task Manager</h2>
+            <p>Login to your account</p>
+
+            <input
+                type="text"
+                id="loginUsername"
+                placeholder="Username"
+            >
+
+            <input
+                type="password"
+                id="loginPassword"
+                placeholder="Password"
+            >
+
+            <select id="loginRole">
+                <option value="superadmin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+            </select>
+
+            <button onclick="login()">Login</button>
+
+            <p id="loginError" class="error"></p>
+
+        </div>
+
+    </section>
+
+
+    <!-- DASHBOARD -->
+
+    <section id="dashboardPage" class="dashboard">
+
+        <aside class="sidebar">
+
+            <h2>DTM</h2>
+
+            <button onclick="showSection('dashboard')">
+                Dashboard
+            </button>
+
+            <button
+                id="usersMenu"
+                onclick="showSection('users')">
+                Users
+            </button>
+
+            <button
+                id="tasksMenu"
+                onclick="showSection('tasks')">
+                Tasks
+            </button>
+
+            <button
+                id="adminsMenu"
+                onclick="showSection('admins')">
+                Admins
+            </button>
+
+        </aside>
+
+
+        <main class="content">
+
+            <!-- DASHBOARD SECTION -->
+
+            <div id="dashboardSection">
+
+                <h2>Dashboard</h2>
+
+                <div class="stats">
+
+                    <div class="stat-card">
+                        <h3>Total Tasks</h3>
+                        <p id="totalTasks">0</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>Pending</h3>
+                        <p id="pendingTasks">0</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>In Progress</h3>
+                        <p id="progressTasks">0</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>Completed</h3>
+                        <p id="completedTasks">0</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- USERS -->
+
+            <div id="usersSection" class="hidden">
+
+                <h2>Users</h2>
+
+                <button
+                    class="primary"
+                    onclick="openUserModal()">
+                    + Create User
+                </button>
+
+                <div id="usersList"></div>
+
+            </div>
+
+
+            <!-- ADMINS -->
+
+            <div id="adminsSection" class="hidden">
+
+                <h2>Admins</h2>
+
+                <button
+                    class="primary"
+                    onclick="openAdminModal()">
+                    + Create Admin
+                </button>
+
+                <div id="adminsList"></div>
+
+            </div>
+
+
+            <!-- TASKS -->
+
+            <div id="tasksSection" class="hidden">
+
+                <h2>Tasks</h2>
+
+                <button
+                    id="createTaskButton"
+                    class="primary"
+                    onclick="openTaskModal()">
+                    + Create Task
+                </button>
+
+                <div id="tasksList"></div>
+
+            </div>
+
+        </main>
+
+    </section>
+
+</div>
+
+
+<!-- USER MODAL -->
+
+<div id="userModal" class="modal">
+
+    <div class="modal-content">
+
+        <h2>Create User</h2>
+
+        <input
+            id="newUserName"
+            placeholder="Username"
+        >
+
+        <input
+            id="newUserPassword"
+            placeholder="Password"
+            type="password"
+        >
+
+        <button
+            class="primary"
+            onclick="createUser()">
+            Create User
+        </button>
+
+        <button onclick="closeModal('userModal')">
+            Cancel
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ADMIN MODAL -->
+
+<div id="adminModal" class="modal">
+
+    <div class="modal-content">
+
+        <h2>Create Admin</h2>
+
+        <input
+            id="newAdminName"
+            placeholder="Username"
+        >
+
+        <input
+            id="newAdminPassword"
+            placeholder="Password"
+            type="password"
+        >
+
+        <button
+            class="primary"
+            onclick="createAdmin()">
+            Create Admin
+        </button>
+
+        <button onclick="closeModal('adminModal')">
+            Cancel
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- TASK MODAL -->
+
+<div id="taskModal" class="modal">
+
+    <div class="modal-content">
+
+        <h2>Create Task</h2>
+
+        <input
+            id="taskTitle"
+            placeholder="Task Title"
+        >
+
+        <textarea
+            id="taskDescription"
+            placeholder="Task Description">
+        </textarea>
+
+        <input
+            id="taskDeadline"
+            type="date"
+        >
+
+        <select id="taskPriority">
+
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+
+        </select>
+
+        <select id="taskUser"></select>
+
+        <button
+            class="primary"
+            onclick="createTask()">
+            Create Task
+        </button>
+
+        <button onclick="closeModal('taskModal')">
+            Cancel
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>
