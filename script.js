@@ -1,96 +1,204 @@
+// =====================================================
+// DAILY TASK MANAGER
+// Firebase Authentication + Firestore
+// =====================================================
+
+import { initializeApp, getApps, getApp }
+    from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
+import {
+    getAuth,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    getDoc,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    orderBy,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+
+// =====================================================
+// FIREBASE CONFIG
+// =====================================================
+// Firebase Console se apna exact firebaseConfig yahan paste karo.
+
+const firebaseConfig = {
+    apiKey: "PASTE_YOUR_API_KEY",
+    authDomain: "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "PASTE_YOUR_PROJECT_ID",
+    storageBucket: "PASTE_YOUR_STORAGE_BUCKET",
+    messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
+    appId: "PASTE_YOUR_APP_ID"
+};
+
+
+// =====================================================
+// FIREBASE INITIALIZATION
+// =====================================================
+
+const app = initializeApp(firebaseConfig);
+
+const auth = getAuth(app);
+
+const db = getFirestore(app);
+
+
+// Secondary Firebase app
+// Iska use Admin/User create karte waqt hota hai,
+// taake current admin logout na ho.
+
+const secondaryAppName = "DailyTaskManagerSecondary";
+
+let secondaryApp;
+
+if (getApps().some(appItem => appItem.name === secondaryAppName)) {
+
+    secondaryApp = getApp(secondaryAppName);
+
+} else {
+
+    secondaryApp =
+        initializeApp(
+            firebaseConfig,
+            secondaryAppName
+        );
+}
+
+const secondaryAuth = getAuth(secondaryApp);
+
+
+// =====================================================
+// GLOBAL VARIABLES
+// =====================================================
+
 let currentUser = null;
 
-let admins = JSON.parse(
-    localStorage.getItem("admins")
-) || [
-    {
-        username: "admin",
-        password: "1234"
-    }
-];
+let users = [];
 
-let users = JSON.parse(
-    localStorage.getItem("users")
-) || [
-    {
-        username: "user",
-        password: "1234"
-    }
-];
+let admins = [];
 
-let tasks = JSON.parse(
-    localStorage.getItem("tasks")
-) || [];
+let tasks = [];
 
 
-// =============================
+// =====================================================
 // LOGIN
-// =============================
+// =====================================================
 
-function login() {
+async function login() {
 
-    const username =
-        document.getElementById("loginUsername").value.trim();
+    const email =
+        document
+            .getElementById("loginUsername")
+            .value
+            .trim();
 
     const password =
-        document.getElementById("loginPassword").value;
+        document
+            .getElementById("loginPassword")
+            .value;
 
-    const role =
-        document.getElementById("loginRole").value;
+    const errorBox =
+        document.getElementById("loginError");
 
-    let valid = false;
+    errorBox.innerText = "";
 
-    if (
-        role === "superadmin" &&
-        username === "superadmin" &&
-        password === "1234"
-    ) {
-        valid = true;
-    }
+    if (!email || !password) {
 
-    if (role === "admin") {
-
-        valid = admins.some(
-            admin =>
-                admin.username === username &&
-                admin.password === password
-        );
-    }
-
-    if (role === "user") {
-
-        valid = users.some(
-            user =>
-                user.username === username &&
-                user.password === password
-        );
-    }
-
-    if (!valid) {
-
-        document.getElementById("loginError").innerText =
-            "Invalid username, password or role.";
+        errorBox.innerText =
+            "Email and password are required.";
 
         return;
     }
 
-    currentUser = {
-        username,
-        role
-    };
+    try {
 
-    localStorage.setItem(
-        "currentUser",
-        JSON.stringify(currentUser)
-    );
+        const credential =
+            await signInWithEmailAndPassword(
+                auth,
+                email,
+                password
+            );
 
-    showApp();
+        await loadCurrentUser(
+            credential.user.uid
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        errorBox.innerText =
+            getFirebaseError(error);
+
+    }
 }
 
 
-// =============================
+// =====================================================
+// LOAD CURRENT USER
+// =====================================================
+
+async function loadCurrentUser(uid) {
+
+    const userRef =
+        doc(
+            db,
+            "users",
+            uid
+        );
+
+    const userSnap =
+        await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+
+        await signOut(auth);
+
+        document.getElementById("loginError").innerText =
+            "User profile not found in database.";
+
+        return;
+    }
+
+    const userData =
+        userSnap.data();
+
+    currentUser = {
+
+        uid: uid,
+
+        email: userData.email,
+
+        name:
+            userData.name ||
+            userData.email,
+
+        role: userData.role
+
+    };
+
+    showApp();
+
+    await loadAllData();
+}
+
+
+// =====================================================
 // SHOW APP
-// =============================
+// =====================================================
 
 function showApp() {
 
@@ -102,26 +210,22 @@ function showApp() {
 
     document.getElementById("currentUser")
         .innerText =
-        currentUser.username +
-        " (" +
-        currentUser.role +
-        ")";
+            currentUser.name +
+            " (" +
+            currentUser.role +
+            ")";
 
     setupPermissions();
 
     updateDashboard();
 
-    renderUsers();
-
-    renderAdmins();
-
-    renderTasks();
+    showSection("dashboard");
 }
 
 
-// =============================
+// =====================================================
 // PERMISSIONS
-// =============================
+// =====================================================
 
 function setupPermissions() {
 
@@ -134,62 +238,211 @@ function setupPermissions() {
     const createTaskButton =
         document.getElementById("createTaskButton");
 
+
     if (currentUser.role === "superadmin") {
 
         usersMenu.style.display = "block";
+
         adminsMenu.style.display = "block";
+
         createTaskButton.style.display = "block";
 
-    } else if (currentUser.role === "admin") {
+    }
+
+    else if (currentUser.role === "admin") {
 
         usersMenu.style.display = "block";
+
         adminsMenu.style.display = "none";
+
         createTaskButton.style.display = "block";
 
-    } else {
+    }
+
+    else {
 
         usersMenu.style.display = "none";
+
         adminsMenu.style.display = "none";
+
         createTaskButton.style.display = "none";
     }
 }
 
 
-// =============================
-// DASHBOARD
-// =============================
+// =====================================================
+// LOAD FIRESTORE DATA
+// =====================================================
 
-function updateDashboard() {
+async function loadAllData() {
 
-    let visibleTasks = getVisibleTasks();
+    await loadUsers();
 
-    document.getElementById("totalTasks").innerText =
-        visibleTasks.length;
+    await loadAdmins();
 
-    document.getElementById("pendingTasks").innerText =
-        visibleTasks.filter(
-            t => t.status === "Pending"
-        ).length;
+    await loadTasks();
 
-    document.getElementById("progressTasks").innerText =
-        visibleTasks.filter(
-            t => t.status === "In Progress"
-        ).length;
+    updateDashboard();
 
-    document.getElementById("completedTasks").innerText =
-        visibleTasks.filter(
-            t => t.status === "Completed"
-        ).length;
+    renderUsers();
+
+    renderAdmins();
+
+    renderTasks();
 }
 
 
+// =====================================================
+// USERS
+// =====================================================
+
+async function loadUsers() {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "users"
+            )
+        );
+
+    users = [];
+
+    snapshot.forEach(docSnap => {
+
+        const data =
+            docSnap.data();
+
+        if (data.role === "user") {
+
+            users.push({
+
+                id: docSnap.id,
+
+                ...data
+
+            });
+        }
+    });
+}
+
+
+// =====================================================
+// ADMINS
+// =====================================================
+
+async function loadAdmins() {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "users"
+            )
+        );
+
+    admins = [];
+
+    snapshot.forEach(docSnap => {
+
+        const data =
+            docSnap.data();
+
+        if (data.role === "admin") {
+
+            admins.push({
+
+                id: docSnap.id,
+
+                ...data
+
+            });
+        }
+    });
+}
+
+
+// =====================================================
+// TASKS
+// =====================================================
+
+async function loadTasks() {
+
+    const snapshot =
+        await getDocs(
+            collection(
+                db,
+                "tasks"
+            )
+        );
+
+    tasks = [];
+
+    snapshot.forEach(docSnap => {
+
+        tasks.push({
+
+            id: docSnap.id,
+
+            ...docSnap.data()
+
+        });
+    });
+}
+
+
+// =====================================================
+// DASHBOARD
+// =====================================================
+
+function updateDashboard() {
+
+    const visibleTasks =
+        getVisibleTasks();
+
+    document.getElementById("totalTasks")
+        .innerText =
+            visibleTasks.length;
+
+    document.getElementById("pendingTasks")
+        .innerText =
+            visibleTasks.filter(
+                task =>
+                    task.status === "Pending"
+            ).length;
+
+    document.getElementById("progressTasks")
+        .innerText =
+            visibleTasks.filter(
+                task =>
+                    task.status === "In Progress"
+            ).length;
+
+    document.getElementById("completedTasks")
+        .innerText =
+            visibleTasks.filter(
+                task =>
+                    task.status === "Completed"
+            ).length;
+}
+
+
+// =====================================================
+// VISIBLE TASKS
+// =====================================================
+
 function getVisibleTasks() {
+
+    if (!currentUser) {
+
+        return [];
+    }
 
     if (currentUser.role === "user") {
 
         return tasks.filter(
             task =>
-                task.assignedTo === currentUser.username
+                task.assignedTo === currentUser.uid
         );
     }
 
@@ -197,9 +450,9 @@ function getVisibleTasks() {
 }
 
 
-// =============================
+// =====================================================
 // SECTION NAVIGATION
-// =============================
+// =====================================================
 
 function showSection(section) {
 
@@ -215,11 +468,13 @@ function showSection(section) {
     document.getElementById("tasksSection")
         .classList.add("hidden");
 
+
     if (section === "dashboard") {
 
         document.getElementById("dashboardSection")
             .classList.remove("hidden");
     }
+
 
     if (section === "users") {
 
@@ -229,6 +484,7 @@ function showSection(section) {
         renderUsers();
     }
 
+
     if (section === "admins") {
 
         document.getElementById("adminsSection")
@@ -236,6 +492,7 @@ function showSection(section) {
 
         renderAdmins();
     }
+
 
     if (section === "tasks") {
 
@@ -247,9 +504,9 @@ function showSection(section) {
 }
 
 
-// =============================
-// USERS
-// =============================
+// =====================================================
+// USER MODAL
+// =====================================================
 
 function openUserModal() {
 
@@ -258,44 +515,115 @@ function openUserModal() {
 }
 
 
-function createUser() {
+// =====================================================
+// CREATE USER
+// =====================================================
 
-    const username =
-        document.getElementById("newUserName").value.trim();
-
-    const password =
-        document.getElementById("newUserPassword").value;
-
-    if (!username || !password) {
-
-        alert("Username and password required.");
-
-        return;
-    }
+async function createUser() {
 
     if (
-        users.some(
-            user => user.username === username
-        )
+        currentUser.role !== "admin" &&
+        currentUser.role !== "superadmin"
     ) {
 
-        alert("User already exists.");
+        alert("You are not allowed to create users.");
 
         return;
     }
 
-    users.push({
-        username,
-        password
-    });
 
-    saveData();
+    const email =
+        document
+            .getElementById("newUserName")
+            .value
+            .trim();
 
-    closeModal("userModal");
+    const password =
+        document
+            .getElementById("newUserPassword")
+            .value;
 
-    renderUsers();
+
+    if (!email || !password) {
+
+        alert(
+            "User email and password are required."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const credential =
+            await createUserWithEmailAndPassword(
+                secondaryAuth,
+                email,
+                password
+            );
+
+        await setDoc(
+            doc(
+                db,
+                "users",
+                credential.user.uid
+            ),
+            {
+
+                name: email,
+
+                email: email,
+
+                role: "user",
+
+                createdBy:
+                    currentUser.uid,
+
+                createdAt:
+                    serverTimestamp()
+
+            }
+        );
+
+
+        await signOut(
+            secondaryAuth
+        );
+
+
+        alert("User created successfully.");
+
+        document.getElementById("newUserName")
+            .value = "";
+
+        document.getElementById("newUserPassword")
+            .value = "";
+
+        closeModal("userModal");
+
+        await loadUsers();
+
+        await loadTasks();
+
+        renderUsers();
+
+        updateTaskUsers();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
+
+// =====================================================
+// RENDER USERS
+// =====================================================
 
 function renderUsers() {
 
@@ -304,97 +632,237 @@ function renderUsers() {
 
     container.innerHTML = "";
 
-    users.forEach((user, index) => {
+
+    users.forEach(user => {
 
         container.innerHTML += `
+
             <div class="user-card">
 
-                <h3>${user.username}</h3>
+                <h3>${escapeHTML(user.name || user.email)}</h3>
 
-                <p>Role: User</p>
+                <p>
+                    Email:
+                    ${escapeHTML(user.email)}
+                </p>
+
+                <p>
+                    Role: User
+                </p>
 
                 ${
                     currentUser.role === "superadmin"
-                    ? `
+
+                    ?
+
+                    `
                     <button
-                        onclick="deleteUser(${index})">
+                        onclick="deleteUser('${user.id}')">
                         Delete
                     </button>
                     `
-                    : ""
+
+                    :
+
+                    ""
                 }
 
             </div>
+
         `;
     });
+
 
     updateTaskUsers();
 }
 
 
-function deleteUser(index) {
+// =====================================================
+// DELETE USER
+// =====================================================
+
+async function deleteUser(id) {
+
+    if (currentUser.role !== "superadmin") {
+
+        alert(
+            "Only Super Admin can delete users."
+        );
+
+        return;
+    }
+
 
     if (
-        !confirm("Delete this user?")
-    ) return;
+        !confirm(
+            "Delete this user profile?"
+        )
+    ) {
 
-    users.splice(index, 1);
+        return;
+    }
 
-    saveData();
 
-    renderUsers();
+    try {
+
+        await deleteDoc(
+            doc(
+                db,
+                "users",
+                id
+            )
+        );
+
+
+        await loadUsers();
+
+        renderUsers();
+
+        alert(
+            "User profile deleted."
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
 
-// =============================
-// ADMINS
-// =============================
+// =====================================================
+// ADMIN MODAL
+// =====================================================
 
 function openAdminModal() {
+
+    if (currentUser.role !== "superadmin") {
+
+        alert(
+            "Only Super Admin can create admins."
+        );
+
+        return;
+    }
 
     document.getElementById("adminModal")
         .style.display = "flex";
 }
 
 
-function createAdmin() {
+// =====================================================
+// CREATE ADMIN
+// =====================================================
 
-    const username =
-        document.getElementById("newAdminName").value.trim();
-
-    const password =
-        document.getElementById("newAdminPassword").value;
-
-    if (!username || !password) {
-
-        alert("Username and password required.");
-
-        return;
-    }
+async function createAdmin() {
 
     if (
-        admins.some(
-            admin => admin.username === username
-        )
+        currentUser.role !== "superadmin"
     ) {
 
-        alert("Admin already exists.");
+        alert(
+            "Only Super Admin can create admins."
+        );
 
         return;
     }
 
-    admins.push({
-        username,
-        password
-    });
 
-    saveData();
+    const email =
+        document
+            .getElementById("newAdminName")
+            .value
+            .trim();
 
-    closeModal("adminModal");
+    const password =
+        document
+            .getElementById("newAdminPassword")
+            .value;
 
-    renderAdmins();
+
+    if (!email || !password) {
+
+        alert(
+            "Admin email and password are required."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const credential =
+            await createUserWithEmailAndPassword(
+                secondaryAuth,
+                email,
+                password
+            );
+
+
+        await setDoc(
+            doc(
+                db,
+                "users",
+                credential.user.uid
+            ),
+            {
+
+                name: email,
+
+                email: email,
+
+                role: "admin",
+
+                createdBy:
+                    currentUser.uid,
+
+                createdAt:
+                    serverTimestamp()
+
+            }
+        );
+
+
+        await signOut(
+            secondaryAuth
+        );
+
+
+        alert(
+            "Admin created successfully."
+        );
+
+
+        document.getElementById("newAdminName")
+            .value = "";
+
+        document.getElementById("newAdminPassword")
+            .value = "";
+
+        closeModal("adminModal");
+
+        await loadAdmins();
+
+        renderAdmins();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
+
+// =====================================================
+// RENDER ADMINS
+// =====================================================
 
 function renderAdmins() {
 
@@ -403,45 +871,115 @@ function renderAdmins() {
 
     container.innerHTML = "";
 
-    admins.forEach((admin, index) => {
+
+    admins.forEach(admin => {
 
         container.innerHTML += `
+
             <div class="admin-card">
 
-                <h3>${admin.username}</h3>
+                <h3>
+                    ${escapeHTML(
+                        admin.name ||
+                        admin.email
+                    )}
+                </h3>
 
-                <p>Role: Admin</p>
+                <p>
+                    Email:
+                    ${escapeHTML(admin.email)}
+                </p>
+
+                <p>
+                    Role: Admin
+                </p>
 
                 <button
-                    onclick="deleteAdmin(${index})">
+                    onclick="deleteAdmin('${admin.id}')">
                     Delete
                 </button>
 
             </div>
+
         `;
     });
 }
 
 
-function deleteAdmin(index) {
+// =====================================================
+// DELETE ADMIN
+// =====================================================
+
+async function deleteAdmin(id) {
+
+    if (currentUser.role !== "superadmin") {
+
+        alert(
+            "Only Super Admin can delete admins."
+        );
+
+        return;
+    }
+
 
     if (
-        !confirm("Delete this admin?")
-    ) return;
+        !confirm(
+            "Delete this admin profile?"
+        )
+    ) {
 
-    admins.splice(index, 1);
+        return;
+    }
 
-    saveData();
 
-    renderAdmins();
+    try {
+
+        await deleteDoc(
+            doc(
+                db,
+                "users",
+                id
+            )
+        );
+
+
+        await loadAdmins();
+
+        renderAdmins();
+
+        alert(
+            "Admin profile deleted."
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
 
-// =============================
-// TASKS
-// =============================
+// =====================================================
+// TASK MODAL
+// =====================================================
 
 function openTaskModal() {
+
+    if (
+        currentUser.role !== "admin" &&
+        currentUser.role !== "superadmin"
+    ) {
+
+        alert(
+            "You are not allowed to create tasks."
+        );
+
+        return;
+    }
+
 
     updateTaskUsers();
 
@@ -450,6 +988,10 @@ function openTaskModal() {
 }
 
 
+// =====================================================
+// UPDATE TASK USERS
+// =====================================================
+
 function updateTaskUsers() {
 
     const select =
@@ -457,79 +999,164 @@ function updateTaskUsers() {
 
     if (!select) return;
 
+
     select.innerHTML = "";
+
 
     users.forEach(user => {
 
         select.innerHTML += `
-            <option value="${user.username}">
-                ${user.username}
+
+            <option value="${user.id}">
+                ${escapeHTML(
+                    user.name ||
+                    user.email
+                )}
             </option>
+
         `;
     });
 }
 
 
-function createTask() {
+// =====================================================
+// CREATE TASK
+// =====================================================
 
-    const title =
-        document.getElementById("taskTitle").value.trim();
+async function createTask() {
 
-    const description =
-        document.getElementById("taskDescription").value.trim();
+    if (
+        currentUser.role !== "admin" &&
+        currentUser.role !== "superadmin"
+    ) {
 
-    const deadline =
-        document.getElementById("taskDeadline").value;
-
-    const priority =
-        document.getElementById("taskPriority").value;
-
-    const assignedTo =
-        document.getElementById("taskUser").value;
-
-    if (!title || !assignedTo) {
-
-        alert("Task title and user are required.");
+        alert(
+            "You are not allowed to create tasks."
+        );
 
         return;
     }
 
-    tasks.push({
 
-        id: Date.now(),
+    const title =
+        document
+            .getElementById("taskTitle")
+            .value
+            .trim();
 
-        title,
 
-        description,
+    const description =
+        document
+            .getElementById("taskDescription")
+            .value
+            .trim();
 
-        deadline,
 
-        priority,
+    const deadline =
+        document
+            .getElementById("taskDeadline")
+            .value;
 
-        assignedTo,
 
-        assignedBy: currentUser.username,
+    const priority =
+        document
+            .getElementById("taskPriority")
+            .value;
 
-        status: "Pending",
 
-        acceptedAt: null,
+    const assignedTo =
+        document
+            .getElementById("taskUser")
+            .value;
 
-        startedAt: null,
 
-        completedAt: null,
+    if (!title || !assignedTo) {
 
-        totalTime: 0
-    });
+        alert(
+            "Task title and user are required."
+        );
 
-    saveData();
+        return;
+    }
 
-    closeModal("taskModal");
 
-    renderTasks();
+    try {
 
-    updateDashboard();
+        await addDoc(
+            collection(
+                db,
+                "tasks"
+            ),
+            {
+
+                title: title,
+
+                description: description,
+
+                deadline: deadline,
+
+                priority: priority,
+
+                assignedTo: assignedTo,
+
+                assignedBy:
+                    currentUser.uid,
+
+                status: "Pending",
+
+                acceptedAt: null,
+
+                startedAt: null,
+
+                completedAt: null,
+
+                totalTime: 0,
+
+                createdAt:
+                    serverTimestamp()
+
+            }
+        );
+
+
+        alert(
+            "Task created successfully."
+        );
+
+
+        document.getElementById("taskTitle")
+            .value = "";
+
+        document.getElementById("taskDescription")
+            .value = "";
+
+        document.getElementById("taskDeadline")
+            .value = "";
+
+
+        closeModal("taskModal");
+
+
+        await loadTasks();
+
+        renderTasks();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
+
+// =====================================================
+// RENDER TASKS
+// =====================================================
 
 function renderTasks() {
 
@@ -538,8 +1165,10 @@ function renderTasks() {
 
     container.innerHTML = "";
 
+
     const visibleTasks =
         getVisibleTasks();
+
 
     if (visibleTasks.length === 0) {
 
@@ -549,54 +1178,78 @@ function renderTasks() {
         return;
     }
 
+
     visibleTasks.forEach(task => {
 
-        container.innerHTML += createTaskHTML(task);
+        container.innerHTML +=
+            createTaskHTML(task);
+
     });
 }
 
+
+// =====================================================
+// TASK HTML
+// =====================================================
 
 function createTaskHTML(task) {
 
     let buttons = "";
 
+
     if (
         currentUser.role === "user"
     ) {
 
-        if (task.status === "Pending") {
+
+        if (
+            task.status === "Pending"
+        ) {
 
             buttons += `
+
                 <button
                     class="primary"
-                    onclick="acceptTask(${task.id})">
+                    onclick="acceptTask('${task.id}')">
                     Accept Task
                 </button>
+
             `;
         }
 
-        if (task.status === "Accepted") {
+
+        if (
+            task.status === "Accepted"
+        ) {
 
             buttons += `
+
                 <button
                     class="primary"
-                    onclick="startTask(${task.id})">
+                    onclick="startTask('${task.id}')">
                     Start Task
                 </button>
+
             `;
         }
 
-        if (task.status === "In Progress") {
+
+        if (
+            task.status === "In Progress"
+        ) {
 
             buttons += `
+
                 <button
                     class="primary"
-                    onclick="endTask(${task.id})">
+                    onclick="endTask('${task.id}')">
                     End Task
                 </button>
+
             `;
         }
     }
+
 
     if (
         currentUser.role === "admin" ||
@@ -604,170 +1257,397 @@ function createTaskHTML(task) {
     ) {
 
         buttons += `
+
             <button
-                onclick="deleteTask(${task.id})">
+                onclick="deleteTask('${task.id}')">
                 Delete
             </button>
+
         `;
     }
 
+
     return `
+
         <div class="task-card">
 
-            <h3>${task.title}</h3>
-
-            <p>${task.description}</p>
+            <h3>
+                ${escapeHTML(task.title)}
+            </h3>
 
             <p>
-                <strong>Assigned To:</strong>
-                ${task.assignedTo}
+                ${escapeHTML(
+                    task.description || ""
+                )}
             </p>
+
 
             <p>
                 <strong>Priority:</strong>
-                ${task.priority}
+                ${escapeHTML(
+                    task.priority || ""
+                )}
             </p>
+
 
             <p>
                 <strong>Deadline:</strong>
                 ${task.deadline || "Not Set"}
             </p>
 
-            <span class="status">
-                ${task.status}
-            </span>
+
+            <p>
+                <strong>Status:</strong>
+
+                <span class="status">
+                    ${escapeHTML(
+                        task.status || ""
+                    )}
+                </span>
+
+            </p>
+
 
             ${
                 task.startedAt
-                ? `<p>
-                    Started:
+
+                ?
+
+                `
+                <p>
+                    <strong>Started:</strong>
                     ${formatDate(task.startedAt)}
-                </p>`
-                : ""
+                </p>
+                `
+
+                :
+
+                ""
             }
+
 
             ${
                 task.completedAt
-                ? `<p>
-                    Completed:
+
+                ?
+
+                `
+                <p>
+                    <strong>Completed:</strong>
                     ${formatDate(task.completedAt)}
-                </p>`
-                : ""
+                </p>
+                `
+
+                :
+
+                ""
             }
+
 
             ${
                 task.totalTime
-                ? `<p>
-                    Total Time:
-                    ${formatDuration(task.totalTime)}
-                </p>`
-                : ""
+
+                ?
+
+                `
+                <p>
+                    <strong>Total Time:</strong>
+                    ${formatDuration(
+                        task.totalTime
+                    )}
+                </p>
+                `
+
+                :
+
+                ""
             }
+
 
             <div>
                 ${buttons}
             </div>
 
         </div>
+
     `;
 }
 
 
-// =============================
-// TASK WORKFLOW
-// =============================
+// =====================================================
+// ACCEPT TASK
+// =====================================================
 
-function acceptTask(id) {
+async function acceptTask(id) {
 
     const task =
-        tasks.find(t => t.id === id);
+        tasks.find(
+            item => item.id === id
+        );
+
 
     if (!task) return;
 
-    task.status = "Accepted";
 
-    task.acceptedAt =
-        Date.now();
+    if (
+        currentUser.role !== "user" ||
+        task.assignedTo !== currentUser.uid
+    ) {
 
-    saveData();
+        alert(
+            "You cannot accept this task."
+        );
 
-    renderTasks();
+        return;
+    }
 
-    updateDashboard();
+
+    try {
+
+        await updateDoc(
+            doc(
+                db,
+                "tasks",
+                id
+            ),
+            {
+
+                status: "Accepted",
+
+                acceptedAt:
+                    Date.now()
+
+            }
+        );
+
+
+        await loadTasks();
+
+        renderTasks();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
 
-function startTask(id) {
+// =====================================================
+// START TASK
+// =====================================================
+
+async function startTask(id) {
 
     const task =
-        tasks.find(t => t.id === id);
+        tasks.find(
+            item => item.id === id
+        );
+
 
     if (!task) return;
 
-    task.status = "In Progress";
 
-    task.startedAt =
-        Date.now();
+    if (
+        currentUser.role !== "user" ||
+        task.assignedTo !== currentUser.uid
+    ) {
 
-    saveData();
+        alert(
+            "You cannot start this task."
+        );
 
-    renderTasks();
+        return;
+    }
 
-    updateDashboard();
+
+    try {
+
+        await updateDoc(
+            doc(
+                db,
+                "tasks",
+                id
+            ),
+            {
+
+                status: "In Progress",
+
+                startedAt:
+                    Date.now()
+
+            }
+        );
+
+
+        await loadTasks();
+
+        renderTasks();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
 
-function endTask(id) {
+// =====================================================
+// END TASK
+// =====================================================
+
+async function endTask(id) {
 
     const task =
-        tasks.find(t => t.id === id);
+        tasks.find(
+            item => item.id === id
+        );
+
 
     if (!task) return;
 
-    task.status = "Completed";
 
-    task.completedAt =
+    if (
+        currentUser.role !== "user" ||
+        task.assignedTo !== currentUser.uid
+    ) {
+
+        alert(
+            "You cannot complete this task."
+        );
+
+        return;
+    }
+
+
+    const completedAt =
         Date.now();
+
+
+    let totalTime = 0;
+
 
     if (task.startedAt) {
 
-        task.totalTime =
-            task.completedAt -
+        totalTime =
+            completedAt -
             task.startedAt;
     }
 
-    saveData();
 
-    renderTasks();
+    try {
 
-    updateDashboard();
-}
+        await updateDoc(
+            doc(
+                db,
+                "tasks",
+                id
+            ),
+            {
 
+                status: "Completed",
 
-function deleteTask(id) {
+                completedAt:
+                    completedAt,
 
-    if (
-        !confirm("Delete this task?")
-    ) return;
+                totalTime:
+                    totalTime
 
-    tasks =
-        tasks.filter(
-            task => task.id !== id
+            }
         );
 
-    saveData();
 
-    renderTasks();
+        await loadTasks();
 
-    updateDashboard();
+        renderTasks();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
 }
 
 
-// =============================
-// UTILITIES
-// =============================
+// =====================================================
+// DELETE TASK
+// =====================================================
+
+async function deleteTask(id) {
+
+    if (
+        currentUser.role !== "admin" &&
+        currentUser.role !== "superadmin"
+    ) {
+
+        alert(
+            "You are not allowed to delete tasks."
+        );
+
+        return;
+    }
+
+
+    if (
+        !confirm(
+            "Delete this task?"
+        )
+    ) {
+
+        return;
+    }
+
+
+    try {
+
+        await deleteDoc(
+            doc(
+                db,
+                "tasks",
+                id
+            )
+        );
+
+
+        await loadTasks();
+
+        renderTasks();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            getFirebaseError(error)
+        );
+    }
+}
+
+
+// =====================================================
+// DATE / TIME
+// =====================================================
 
 function formatDate(time) {
+
+    if (!time) return "";
 
     return new Date(time)
         .toLocaleString();
@@ -780,7 +1660,9 @@ function formatDuration(ms) {
         Math.floor(ms / 1000);
 
     const hours =
-        Math.floor(seconds / 3600);
+        Math.floor(
+            seconds / 3600
+        );
 
     const minutes =
         Math.floor(
@@ -789,6 +1671,7 @@ function formatDuration(ms) {
 
     const remainingSeconds =
         seconds % 60;
+
 
     return (
         hours +
@@ -801,35 +1684,47 @@ function formatDuration(ms) {
 }
 
 
+// =====================================================
+// CLOSE MODAL
+// =====================================================
+
 function closeModal(id) {
 
-    document.getElementById(id)
-        .style.display = "none";
+    const modal =
+        document.getElementById(id);
+
+    if (modal) {
+
+        modal.style.display =
+            "none";
+    }
 }
 
 
-function saveData() {
+// =====================================================
+// LOGOUT
+// =====================================================
 
-    localStorage.setItem(
-        "admins",
-        JSON.stringify(admins)
-    );
+async function logout() {
 
-    localStorage.setItem(
-        "users",
-        JSON.stringify(users)
-    );
+    try {
 
-    localStorage.setItem(
-        "tasks",
-        JSON.stringify(tasks)
-    );
-}
+        await signOut(auth);
 
+    } catch (error) {
 
-function logout() {
+        console.error(error);
+    }
+
 
     currentUser = null;
+
+    users = [];
+
+    admins = [];
+
+    tasks = [];
+
 
     document.getElementById("dashboardPage")
         .style.display = "none";
@@ -837,24 +1732,115 @@ function logout() {
     document.getElementById("loginPage")
         .style.display = "flex";
 
-    document.getElementById("loginUsername").value = "";
 
-    document.getElementById("loginPassword").value = "";
+    document.getElementById("loginUsername")
+        .value = "";
+
+    document.getElementById("loginPassword")
+        .value = "";
+
+    document.getElementById("loginError")
+        .innerText = "";
 }
 
 
-// =============================
-// STARTUP
-// =============================
+// =====================================================
+// FIREBASE AUTH STATE
+// =====================================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+onAuthStateChanged(
+    auth,
+    async (firebaseUser) => {
 
-        document.getElementById("dashboardPage")
-            .style.display = "none";
+        if (!firebaseUser) {
 
-        document.getElementById("loginPage")
-            .style.display = "flex";
+            currentUser = null;
+
+            document.getElementById(
+                "dashboardPage"
+            ).style.display = "none";
+
+            document.getElementById(
+                "loginPage"
+            ).style.display = "flex";
+
+            return;
+        }
+
+
+        try {
+
+            await loadCurrentUser(
+                firebaseUser.uid
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            await signOut(auth);
+
+        }
     }
 );
+
+
+// =====================================================
+// FIREBASE ERROR HANDLER
+// =====================================================
+
+function getFirebaseError(error) {
+
+    if (!error) {
+
+        return "Something went wrong.";
+    }
+
+
+    switch (error.code) {
+
+        case "auth/invalid-credential":
+            return "Invalid email or password.";
+
+        case "auth/email-already-in-use":
+            return "This email is already registered.";
+
+        case "auth/invalid-email":
+            return "Invalid email address.";
+
+        case "auth/weak-password":
+            return "Password must be at least 6 characters.";
+
+        case "auth/user-not-found":
+            return "User account not found.";
+
+        case "permission-denied":
+            return "You do not have permission for this action.";
+
+        default:
+            return error.message ||
+                "Something went wrong.";
+    }
+}
+
+
+// =====================================================
+// HTML SECURITY
+// =====================================================
+
+function escapeHTML(value) {
+
+    if (value === null ||
+        value === undefined) {
+
+        return "";
+    }
+
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
