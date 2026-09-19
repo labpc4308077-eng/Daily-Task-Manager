@@ -36,12 +36,13 @@ import {
 // Firebase Console se apna exact firebaseConfig yahan paste karo.
 
 const firebaseConfig = {
-    apiKey: "PASTE_YOUR_API_KEY",
-    authDomain: "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "PASTE_YOUR_PROJECT_ID",
-    storageBucket: "PASTE_YOUR_STORAGE_BUCKET",
-    messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-    appId: "PASTE_YOUR_APP_ID"
+    apiKey: "AIzaSyDPCcSkOu0CcsN8LYo7J3QitNhksejxjXM",
+    authDomain: "daily-task-manager-9d83d.firebaseapp.com",
+    projectId: "daily-task-manager-9d83d",
+    storageBucket: "daily-task-manager-9d83d.firebasestorage.app",
+    messagingSenderId: "197724632235",
+    appId: "1:197724632235:web:41b63b86f3fc67707933ee",
+    measurementId: "G-NQYWQXPMT"
 };
 
 
