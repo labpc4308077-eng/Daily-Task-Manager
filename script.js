@@ -1845,3 +1845,29 @@ function escapeHTML(value) {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 }
+// =====================================================
+// MAKE FUNCTIONS AVAILABLE TO HTML ONCLICK
+// =====================================================
+
+window.login = login;
+window.logout = logout;
+
+window.showSection = showSection;
+
+window.openUserModal = openUserModal;
+window.createUser = createUser;
+window.deleteUser = deleteUser;
+
+window.openAdminModal = openAdminModal;
+window.createAdmin = createAdmin;
+window.deleteAdmin = deleteAdmin;
+
+window.openTaskModal = openTaskModal;
+window.createTask = createTask;
+window.deleteTask = deleteTask;
+
+window.acceptTask = acceptTask;
+window.startTask = startTask;
+window.endTask = endTask;
+
+window.closeModal = closeModal;
