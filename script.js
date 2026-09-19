@@ -36,7 +36,7 @@ import {
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDPCcPsKOuOCcsN8LYoz7J3QitNhksejxM",
+ apiKey: "AIzaSyDPCcPsKOuOCcsN8LYo7J3QitNhksejxM",
   authDomain: "daily-task-manager-9d83d.firebaseapp.com",
   projectId: "daily-task-manager-9d83d",
   storageBucket: "daily-task-manager-9d83d.firebasestorage.app",
