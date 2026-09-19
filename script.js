@@ -36,15 +36,14 @@ import {
 // ============================================================
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDPCcSkOu0CcsN8LYo7J3QitNhksejxjXM",
-    authDomain: "daily-task-manager-9d83d.firebaseapp.com",
-    projectId: "daily-task-manager-9d83d",
-    storageBucket: "daily-task-manager-9d83d.firebasestorage.app",
-    messagingSenderId: "197724632235",
-    appId: "1:197724632235:web:41b63b86f3fc67707933ee",
-    measurementId: "G-NQYWQXPMT"
+  apiKey: "AIzaSyDPCcPsKOuOCcsN8LYoz7J3QitNhksejxM",
+  authDomain: "daily-task-manager-9d83d.firebaseapp.com",
+  projectId: "daily-task-manager-9d83d",
+  storageBucket: "daily-task-manager-9d83d.firebasestorage.app",
+  messagingSenderId: "197724632235",
+  appId: "1:197724632235:web:41b63b86f3fc67707933ee",
+  measurementId: "G-NQVVKXPMPT"
 };
-
 
 // ============================================================
 // FIREBASE INITIALIZATION
