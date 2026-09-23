@@ -7,118 +7,372 @@
     <title>Daily Task Manager</title>
 
     <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+        import {
+            getFirestore,
+            collection,
+            doc,
+            getDoc,
+            getDocs,
+            addDoc,
+            setDoc,
+            updateDoc,
+            deleteDoc,
+            query,
+            where,
+            orderBy,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPCcPsKOu0CcsN8LYoz7J3QitNhksejxjM",
+            authDomain: "daily-task-manager-9d83d.firebaseapp.com",
+            projectId: "daily-task-manager-9d83d",
+            storageBucket: "daily-task-manager-9d83d.firebasestorage.app",
+            messagingSenderId: "197724632235",
+            appId: "1:197724632235:web:41b63b86f3fc67707933ee",
+            measurementId: "G-NQVVKXPMPT"
+        };
+
+        const app = initializeApp(firebaseConfig);
+
+        window.firebaseAuth = getAuth(app);
+        window.db = getFirestore(app);
+
+        window.firebaseFns = {
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            collection,
+            doc,
+            getDoc,
+            getDocs,
+            addDoc,
+            setDoc,
+            updateDoc,
+            deleteDoc,
+            query,
+            where,
+            orderBy,
+            serverTimestamp
+        };
+
+        window.dispatchEvent(new Event("firebase-ready"));
+    </script>
 </head>
 
 <body>
 
-<div class="app">
+<!-- ================= LOGIN PAGE ================= -->
+
+<div id="loginPage" class="login-page">
+
+    <div class="login-box">
+
+        <div class="logo-area">
+            <div class="logo">✓</div>
+            <h1>Daily Task Manager</h1>
+            <p>Manage tasks. Track progress. Get results.</p>
+        </div>
+
+        <div id="loginMessage" class="message"></div>
+
+        <form id="loginForm">
+
+            <div class="form-group">
+                <label>Email</label>
+                <input
+                    type="email"
+                    id="loginEmail"
+                    placeholder="Enter your email"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input
+                    type="password"
+                    id="loginPassword"
+                    placeholder="Enter your password"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn primary-btn">
+                Login
+            </button>
+
+        </form>
+
+        <div class="login-divider">
+            <span>OR</span>
+        </div>
+
+        <button
+            type="button"
+            class="btn secondary-btn"
+            onclick="openAdminSignup()"
+        >
+            Register as Teacher / Admin
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ADMIN SIGNUP MODAL ================= -->
+
+<div id="adminSignupModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <h2>Teacher / Admin Registration</h2>
+
+            <button
+                class="close-btn"
+                onclick="closeModal('adminSignupModal')"
+            >
+                ×
+            </button>
+        </div>
+
+        <div id="signupMessage" class="message"></div>
+
+        <form id="adminSignupForm">
+
+            <div class="form-group">
+                <label>Your Name</label>
+                <input
+                    type="text"
+                    id="signupName"
+                    placeholder="Enter your name"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Team / School / Department Name</label>
+                <input
+                    type="text"
+                    id="signupTeamName"
+                    placeholder="e.g. Computer Science Team"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input
+                    type="email"
+                    id="signupEmail"
+                    placeholder="Enter email"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input
+                    type="password"
+                    id="signupPassword"
+                    placeholder="Minimum 6 characters"
+                    minlength="6"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input
+                    type="password"
+                    id="signupConfirmPassword"
+                    placeholder="Confirm password"
+                    minlength="6"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn primary-btn">
+                Create Admin Account
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- ================= MAIN APP ================= -->
+
+<div id="app" class="app hidden">
+
+    <!-- TOP BAR -->
 
     <header class="topbar">
-        <h1>Daily Task Manager</h1>
 
-        <div>
-            <span id="currentUser"></span>
-            <button onclick="logout()">Logout</button>
+        <div class="brand">
+            <div class="brand-icon">✓</div>
+            <span>Daily Task Manager</span>
         </div>
+
+        <div class="topbar-right">
+
+            <div class="user-info">
+                <strong id="currentUserName">User</strong>
+                <span id="currentUserRole">User</span>
+            </div>
+
+            <button
+                class="logout-btn"
+                onclick="logout()"
+            >
+                Logout
+            </button>
+
+        </div>
+
     </header>
 
-    <!-- LOGIN -->
 
-    <section id="loginPage" class="login-page">
+    <!-- SIDEBAR -->
 
-        <div class="login-box">
+    <aside class="sidebar">
 
-            <h2>Daily Task Manager</h2>
-            <p>Login to your account</p>
+        <nav>
 
-            <input
-                type="email"
-                id="loginUsername"
-                placeholder="Email"
+            <button
+                class="nav-item active"
+                id="navDashboard"
+                onclick="showSection('dashboard')"
             >
-
-            <input
-                type="password"
-                id="loginPassword"
-                placeholder="Password"
-            >
-
-            <select id="loginRole">
-                <option value="superadmin">Super Admin</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-            </select>
-
-            <button onclick="login()">Login</button>
-
-            <p id="loginError" class="error"></p>
-
-        </div>
-
-    </section>
-
-
-    <!-- DASHBOARD -->
-
-    <section id="dashboardPage" class="dashboard">
-
-        <aside class="sidebar">
-
-            <h2>DTM</h2>
-
-            <button onclick="showSection('dashboard')">
+                <span>📊</span>
                 Dashboard
             </button>
 
             <button
-                id="usersMenu"
-                onclick="showSection('users')">
-                Users
-            </button>
-
-            <button
-                id="tasksMenu"
-                onclick="showSection('tasks')">
+                class="nav-item"
+                id="navTasks"
+                onclick="showSection('tasks')"
+            >
+                <span>📋</span>
                 Tasks
             </button>
 
             <button
-                id="adminsMenu"
-                onclick="showSection('admins')">
-                Admins
+                class="nav-item"
+                id="navUsers"
+                onclick="showSection('users')"
+            >
+                <span>👥</span>
+                Users
             </button>
 
-        </aside>
+            <button
+                class="nav-item"
+                id="navAdmins"
+                onclick="showSection('admins')"
+            >
+                <span>👨‍🏫</span>
+                Admins / Teachers
+            </button>
+
+        </nav>
+
+    </aside>
 
 
-        <main class="content">
+    <!-- MAIN CONTENT -->
 
-            <!-- DASHBOARD -->
+    <main class="main-content">
 
-            <div id="dashboardSection">
 
-                <h2>Dashboard</h2>
+        <!-- ================= DASHBOARD ================= -->
 
-                <div class="stats">
+        <section id="dashboardSection" class="content-section">
 
-                    <div class="stat-card">
-                        <h3>Total Tasks</h3>
-                        <p id="totalTasks">0</p>
+            <div class="page-header">
+
+                <div>
+                    <h1>Dashboard</h1>
+                    <p id="dashboardSubtitle">
+                        Welcome to Daily Task Manager
+                    </p>
+                </div>
+
+            </div>
+
+
+            <!-- STAT CARDS -->
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <div class="stat-icon blue">
+                        📋
                     </div>
 
-                    <div class="stat-card">
-                        <h3>Pending</h3>
-                        <p id="pendingTasks">0</p>
+                    <div>
+                        <span>Total Tasks</span>
+                        <strong id="totalTasks">0</strong>
                     </div>
 
-                    <div class="stat-card">
-                        <h3>In Progress</h3>
-                        <p id="progressTasks">0</p>
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon orange">
+                        ⏳
                     </div>
 
-                    <div class="stat-card">
-                        <h3>Completed</h3>
-                        <p id="completedTasks">0</p>
+                    <div>
+                        <span>Pending</span>
+                        <strong id="pendingTasks">0</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon purple">
+                        🔄
+                    </div>
+
+                    <div>
+                        <span>In Progress</span>
+                        <strong id="inProgressTasks">0</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon green">
+                        ✓
+                    </div>
+
+                    <div>
+                        <span>Completed</span>
+                        <strong id="completedTasks">0</strong>
                     </div>
 
                 </div>
@@ -126,182 +380,573 @@
             </div>
 
 
-            <!-- USERS -->
+            <!-- TEAM / PERSONAL INFORMATION -->
 
-            <div id="usersSection" class="hidden">
+            <div
+                id="teamInfoCard"
+                class="info-card hidden"
+            >
 
-                <h2>Users</h2>
+                <div>
+                    <span>Team</span>
+                    <strong id="dashboardTeamName">-</strong>
+                </div>
 
-                <button
-                    class="primary"
-                    onclick="openUserModal()">
-                    + Create User
-                </button>
-
-                <div id="usersList"></div>
-
-            </div>
-
-
-            <!-- ADMINS -->
-
-            <div id="adminsSection" class="hidden">
-
-                <h2>Admins</h2>
-
-                <button
-                    class="primary"
-                    onclick="openAdminModal()">
-                    + Create Admin
-                </button>
-
-                <div id="adminsList"></div>
+                <div>
+                    <span>Members</span>
+                    <strong id="dashboardMemberCount">0</strong>
+                </div>
 
             </div>
 
 
-            <!-- TASKS -->
+            <!-- CHART -->
 
-            <div id="tasksSection" class="hidden">
+            <div class="card chart-card">
 
-                <h2>Tasks</h2>
+                <div class="card-header">
+
+                    <div>
+                        <h2 id="chartTitle">
+                            Task Progress
+                        </h2>
+
+                        <p>
+                            Overview of task completion
+                        </p>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+
+                    <canvas id="taskChart"></canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- STUDENT PROGRESS -->
+
+            <div
+                id="studentProgressSection"
+                class="card hidden"
+            >
+
+                <div class="card-header">
+
+                    <div>
+                        <h2>My Progress</h2>
+                        <p>Your personal task performance</p>
+                    </div>
+
+                </div>
+
+                <div class="progress-summary">
+
+                    <div>
+                        <span>Completed</span>
+                        <strong id="myCompleted">0</strong>
+                    </div>
+
+                    <div>
+                        <span>Pending</span>
+                        <strong id="myPending">0</strong>
+                    </div>
+
+                    <div>
+                        <span>In Progress</span>
+                        <strong id="myInProgress">0</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- TEAM MEMBERS PROGRESS -->
+
+            <div
+                id="teamProgressSection"
+                class="card hidden"
+            >
+
+                <div class="card-header">
+
+                    <div>
+                        <h2>Team Progress</h2>
+                        <p>Individual student performance</p>
+                    </div>
+
+                </div>
+
+                <div
+                    id="teamProgressList"
+                    class="progress-list"
+                ></div>
+
+            </div>
+
+
+            <!-- SUPER ADMIN OVERVIEW -->
+
+            <div
+                id="adminOverviewSection"
+                class="card hidden"
+            >
+
+                <div class="card-header">
+
+                    <div>
+                        <h2>Teams Overview</h2>
+                        <p>All registered teachers and their teams</p>
+                    </div>
+
+                </div>
+
+                <div
+                    id="adminOverviewList"
+                    class="admin-overview-list"
+                ></div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= TASKS ================= -->
+
+        <section
+            id="tasksSection"
+            class="content-section hidden"
+        >
+
+            <div class="page-header">
+
+                <div>
+                    <h1>Tasks</h1>
+                    <p id="tasksSubtitle">
+                        Manage your tasks
+                    </p>
+                </div>
 
                 <button
-                    id="createTaskButton"
-                    class="primary"
-                    onclick="openTaskModal()">
+                    id="createTaskBtn"
+                    class="btn primary-btn"
+                    onclick="openTaskModal()"
+                >
                     + Create Task
                 </button>
 
-                <div id="tasksList"></div>
+            </div>
+
+
+            <div class="card">
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Task</th>
+                                <th>Assigned To</th>
+                                <th>Priority</th>
+                                <th>Deadline</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tasksTableBody">
+
+                        </tbody>
+
+                    </table>
+
+                </div>
 
             </div>
 
-        </main>
+        </section>
 
-    </section>
+
+        <!-- ================= USERS ================= -->
+
+        <section
+            id="usersSection"
+            class="content-section hidden"
+        >
+
+            <div class="page-header">
+
+                <div>
+                    <h1>Users / Students</h1>
+                    <p id="usersSubtitle">
+                        Manage your team members
+                    </p>
+                </div>
+
+                <button
+                    id="createUserBtn"
+                    class="btn primary-btn"
+                    onclick="openUserModal()"
+                >
+                    + Add User
+                </button>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Team</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="usersTableBody">
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= ADMINS ================= -->
+
+        <section
+            id="adminsSection"
+            class="content-section hidden"
+        >
+
+            <div class="page-header">
+
+                <div>
+                    <h1>Admins / Teachers</h1>
+                    <p>
+                        All registered teachers and teams
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Team</th>
+                                <th>Status</th>
+                                <th>Created</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="adminsTableBody">
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
 
 </div>
 
 
-<!-- USER MODAL -->
+<!-- ================= USER MODAL ================= -->
 
 <div id="userModal" class="modal">
 
     <div class="modal-content">
 
-        <h2>Create User</h2>
+        <div class="modal-header">
 
-        <input
-            id="newUserName"
-            type="email"
-            placeholder="User Email"
-        >
+            <h2>Add User / Student</h2>
 
-        <input
-            id="newUserPassword"
-            placeholder="Password"
-            type="password"
-        >
+            <button
+                class="close-btn"
+                onclick="closeModal('userModal')"
+            >
+                ×
+            </button>
 
-        <button
-            class="primary"
-            onclick="createUser()">
-            Create User
-        </button>
+        </div>
 
-        <button onclick="closeModal('userModal')">
-            Cancel
-        </button>
+        <div id="userMessage" class="message"></div>
+
+        <form id="userForm">
+
+            <div class="form-group">
+
+                <label>Name</label>
+
+                <input
+                    type="text"
+                    id="userName"
+                    placeholder="Student name"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Email</label>
+
+                <input
+                    type="email"
+                    id="userEmail"
+                    placeholder="Student email"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Password</label>
+
+                <input
+                    type="password"
+                    id="userPassword"
+                    placeholder="Minimum 6 characters"
+                    minlength="6"
+                    required
+                >
+
+            </div>
+
+            <button
+                type="submit"
+                class="btn primary-btn"
+            >
+                Create User
+            </button>
+
+        </form>
 
     </div>
 
 </div>
 
 
-<!-- ADMIN MODAL -->
-
-<div id="adminModal" class="modal">
-
-    <div class="modal-content">
-
-        <h2>Create Admin</h2>
-
-        <input
-            id="newAdminName"
-            type="email"
-            placeholder="Admin Email"
-        >
-
-        <input
-            id="newAdminPassword"
-            placeholder="Password"
-            type="password"
-        >
-
-        <button
-            class="primary"
-            onclick="createAdmin()">
-            Create Admin
-        </button>
-
-        <button onclick="closeModal('adminModal')">
-            Cancel
-        </button>
-
-    </div>
-
-</div>
-
-
-<!-- TASK MODAL -->
+<!-- ================= TASK MODAL ================= -->
 
 <div id="taskModal" class="modal">
 
-    <div class="modal-content">
+    <div class="modal-content task-modal">
 
-        <h2>Create Task</h2>
+        <div class="modal-header">
 
-        <input
-            id="taskTitle"
-            placeholder="Task Title"
-        >
+            <h2 id="taskModalTitle">
+                Create Task
+            </h2>
 
-        <textarea
-            id="taskDescription"
-            placeholder="Task Description">
-        </textarea>
+            <button
+                class="close-btn"
+                onclick="closeModal('taskModal')"
+            >
+                ×
+            </button>
 
-        <input
-            id="taskDeadline"
-            type="date"
-        >
+        </div>
 
-        <select id="taskPriority">
+        <div id="taskMessage" class="message"></div>
 
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-            <option value="Urgent">Urgent</option>
+        <form id="taskForm">
 
-        </select>
+            <input
+                type="hidden"
+                id="editTaskId"
+            >
 
-        <select id="taskUser"></select>
+            <div class="form-group">
 
-        <button
-            class="primary"
-            onclick="createTask()">
-            Create Task
-        </button>
+                <label>Task Title</label>
 
-        <button onclick="closeModal('taskModal')">
-            Cancel
-        </button>
+                <input
+                    type="text"
+                    id="taskTitle"
+                    placeholder="Enter task title"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Description</label>
+
+                <textarea
+                    id="taskDescription"
+                    placeholder="Enter task description"
+                    rows="4"
+                ></textarea>
+
+            </div>
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label>Assign To</label>
+
+                    <select
+                        id="taskAssignedTo"
+                        required
+                    >
+
+                        <option value="">
+                            Select user
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Priority</label>
+
+                    <select id="taskPriority">
+
+                        <option value="low">
+                            Low
+                        </option>
+
+                        <option
+                            value="medium"
+                            selected
+                        >
+                            Medium
+                        </option>
+
+                        <option value="high">
+                            High
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Deadline</label>
+
+                <input
+                    type="datetime-local"
+                    id="taskDeadline"
+                >
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="btn primary-btn"
+            >
+                Save Task
+            </button>
+
+        </form>
 
     </div>
 
 </div>
 
+
+<!-- ================= TASK DETAILS MODAL ================= -->
+
+<div id="taskDetailsModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2>Task Details</h2>
+
+            <button
+                class="close-btn"
+                onclick="closeModal('taskDetailsModal')"
+            >
+                ×
+            </button>
+
+        </div>
+
+        <div id="taskDetailsContent">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= LOADING ================= -->
+
+<div
+    id="loadingOverlay"
+    class="loading-overlay hidden"
+>
+
+    <div class="loader"></div>
+
+    <p>Loading...</p>
+
+</div>
+
+
+<!-- ================= CHART.JS ================= -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<!-- ================= MAIN JAVASCRIPT ================= -->
 
 <script type="module" src="script.js"></script>
 
